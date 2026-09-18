@@ -68,6 +68,7 @@
   .badge.good { background: var(--good-bg); color: var(--good-text); }
   .badge.warn { background: var(--warn-bg); color: var(--warn-text); }
   .badge.bad { background: var(--bad-bg); color: var(--bad-text); }
+  .badge.muted { background: rgba(136,135,128,0.15); color: var(--text-3); }
   .field { display: flex; flex-direction: column; gap: 4px; }
   .field label { font-size: 12px; color: var(--text-2); }
   .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
@@ -224,7 +225,7 @@
       <div class="two-col">
         <div class="chart-wrap">
           <div class="section-title" style="margin-top:0">Store-by-store leaderboard</div>
-          <canvas id="leaderChart"></canvas>
+          <canvas id="leaderChart" style="max-height:400px"></canvas>
         </div>
         <div class="chart-wrap">
           <div class="section-title" style="margin-top:0">Score by parameter (network-wide)</div>
@@ -261,32 +262,35 @@
 <script>
 (function(){
   // ---- Paste your deployed Apps Script Web app URL here after Step 4 ----
-  var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxjAKX_bY6dAVJZjXgVDCqI2KFakDYeAy2lEFPBElP2K-9yThCPLCHI5fMKDwrdNFFQ/exec';
+  var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz_MHN1oIcF-Dg-UI7EE13yOKjtM5mqPiJZZ2UVVAxYTXDwOAkSpEku1j6zb5RhnLZC/exec';
 
   var PARAMS = ['Cleanliness', 'Planogram compliance', 'Signage placement', 'Stock presentation', 'Lighting', 'Price tag accuracy'];
 
+  // Real stores, matching the VM Store Logins sheet. No history yet —
+  // scores/status fill in as the coordinator assigns tasks and reviews come back.
   var STORES = [
-    { id: 's1', name: 'Andheri West', region: 'Mumbai', score: 88, last: '2026-09-10', status: 'Reviewed' },
-    { id: 's2', name: 'Bandra Linking Rd', region: 'Mumbai', score: 62, last: '2026-08-28', status: 'Overdue' },
-    { id: 's3', name: 'Powai Hub Mall', region: 'Mumbai', score: 91, last: '2026-09-14', status: 'Reviewed' },
-    { id: 's4', name: 'Koregaon Park', region: 'Pune', score: 74, last: '2026-09-05', status: 'Pending review' },
-    { id: 's5', name: 'MG Road', region: 'Pune', score: 55, last: '2026-08-20', status: 'Overdue' },
-    { id: 's6', name: 'Indiranagar', region: 'Bengaluru', score: 83, last: '2026-09-12', status: 'Reviewed' }
+    { id: 'DEHARADUN', name: 'DEHARADUN', region: 'Dehradun', score: null, last: null, status: 'No submissions yet' },
+    { id: 'Curo Jalandhar', name: 'Curo Jalandhar', region: 'Jalandhar', score: null, last: null, status: 'No submissions yet' },
+    { id: 'Patiala', name: 'Patiala', region: 'Patiala', score: null, last: null, status: 'No submissions yet' },
+    { id: 'INDORE', name: 'Indore', region: 'Indore', score: null, last: null, status: 'No submissions yet' },
+    { id: 'BHOPAL', name: 'Bhopal', region: 'Bhopal', score: null, last: null, status: 'No submissions yet' },
+    { id: 'MUSSOORIE', name: 'Mussoorie', region: 'Mussoorie', score: null, last: null, status: 'No submissions yet' },
+    { id: 'Shimla', name: 'Shimla', region: 'Shimla', score: null, last: null, status: 'No submissions yet' },
+    { id: 'Haldwani', name: 'Haldwani', region: 'Haldwani', score: null, last: null, status: 'No submissions yet' },
+    { id: 'BATHINDA', name: 'Bathinda', region: 'Bathinda', score: null, last: null, status: 'No submissions yet' },
+    { id: 'VESU', name: 'Vesu', region: 'Surat', score: null, last: null, status: 'No submissions yet' },
+    { id: 'Eastwood Jalandhar', name: 'Eastwood Jalandhar', region: 'Kapurthala', score: null, last: null, status: 'No submissions yet' },
+    { id: 'BORIVALI', name: 'Borivali', region: 'Mumbai', score: null, last: null, status: 'No submissions yet' },
+    { id: 'JAMMU', name: 'Jammu', region: 'Jammu', score: null, last: null, status: 'No submissions yet' },
+    { id: 'GOA', name: 'Goa', region: 'Goa', score: null, last: null, status: 'No submissions yet' },
+    { id: 'Surat Adajan', name: 'Surat Adajan', region: 'Surat', score: null, last: null, status: 'No submissions yet' },
+    { id: 'Bhiwandi', name: 'Bhiwandi', region: 'Bhiwandi', score: null, last: null, status: 'No submissions yet' }
   ];
 
-  var tasks = [
-    { id: 't1', storeId: 's4', storeName: 'Koregaon Park', due: '2026-09-20', note: 'Monthly VM photos', status: 'submitted', rejected: false, rejectionNote: '', photos: seedPhotos(4) },
-    { id: 't2', storeId: 's2', storeName: 'Bandra Linking Rd', due: '2026-09-22', note: 'Entrance display refresh', status: 'open', rejected: false, rejectionNote: '', photos: [] },
-    { id: 't3', storeId: 's5', storeName: 'MG Road', due: '2026-09-18', note: 'Monthly VM photos', status: 'open', rejected: true, rejectionNote: 'Failed: Signage placement, Lighting — please retake those angles and resubmit.', photos: [] }
-  ];
-
+  // No tasks or reports yet — the coordinator assigns the first ones from the Assign tab.
+  var tasks = [];
   var reportIdSeq = 1;
-  var reports = [
-    { id: 'r'+(reportIdSeq++), storeId: 's1', storeName: 'Andheri West', date: '2026-08-15', note: 'Monthly VM photos', photos: seedPhotos(3), scores: allPass(), overall: 100, comments: 'Clean and compliant.' },
-    { id: 'r'+(reportIdSeq++), storeId: 's3', storeName: 'Powai Hub Mall', date: '2026-09-01', note: 'Monthly VM photos', photos: seedPhotos(3), scores: allPass(), overall: 100, comments: 'Great signage this month.' },
-    { id: 'r'+(reportIdSeq++), storeId: 's3', storeName: 'Powai Hub Mall', date: '2026-09-14', note: 'Festive window display', photos: seedPhotos(4), scores: allPass(), overall: 100, comments: 'Approved on first pass.' },
-    { id: 'r'+(reportIdSeq++), storeId: 's6', storeName: 'Indiranagar', date: '2026-09-12', note: 'Monthly VM photos', photos: seedPhotos(3), scores: allPass(), overall: 100, comments: 'All good.' }
-  ];
+  var reports = [];
 
   function allPass(){
     var s = {};
@@ -300,8 +304,8 @@
     return out;
   }
 
-  function scoreClass(score){ return score >= 80 ? 'good' : score >= 65 ? 'warn' : 'bad'; }
-  function statusClass(status){ return status === 'Reviewed' ? 'good' : status === 'Pending review' ? 'warn' : 'bad'; }
+  function scoreClass(score){ if (score === null || score === undefined) return 'muted'; return score >= 80 ? 'good' : score >= 65 ? 'warn' : 'bad'; }
+  function statusClass(status){ if (status === 'Reviewed') return 'good'; if (status === 'Pending review') return 'warn'; if (status === 'No submissions yet') return 'muted'; return 'bad'; }
 
   // ---- Login (single form, checked live against the Sheet via Apps Script).
   // The sheet's Role column decides whether this lands on the HO or store window.
@@ -390,13 +394,14 @@
   }
 
   function renderSummary(){
-    var avg = Math.round(STORES.reduce(function(a,s){return a+s.score;},0) / STORES.length);
+    var reviewedStores = STORES.filter(function(s){ return s.score !== null; });
+    var avg = reviewedStores.length ? Math.round(reviewedStores.reduce(function(a,s){return a+s.score;},0) / reviewedStores.length) : null;
     var overdue = STORES.filter(function(s){return s.status==='Overdue';}).length;
     var pending = tasks.filter(function(t){return t.status==='submitted';}).length;
     var cards = [
       { label: 'Stores reviewed this month', value: STORES.filter(function(s){return s.status==='Reviewed';}).length, cls:'good' },
       { label: 'Awaiting your review', value: pending, cls: pending>0?'warn':'' },
-      { label: 'Avg VM score', value: avg + '%', cls: scoreClass(avg)==='bad'?'warn':scoreClass(avg) },
+      { label: 'Avg VM score', value: avg === null ? '—' : avg + '%', cls: avg === null ? '' : (scoreClass(avg)==='bad'?'warn':scoreClass(avg)) },
       { label: 'Overdue stores', value: overdue, cls: overdue>0?'warn':'' }
     ];
     document.getElementById('summaryCards').innerHTML = cards.map(function(c){
@@ -406,8 +411,9 @@
 
   function renderStoreTable(){
     document.querySelector('#storeTable tbody').innerHTML = STORES.map(function(s){
-      return '<tr><td>'+s.name+'</td><td>'+s.region+'</td><td>'+s.last+'</td>' +
-        '<td><span class="badge '+scoreClass(s.score)+'">'+s.score+'%</span></td>' +
+      var scoreCell = s.score === null ? '<span class="badge muted">—</span>' : '<span class="badge '+scoreClass(s.score)+'">'+s.score+'%</span>';
+      return '<tr><td>'+s.name+'</td><td>'+s.region+'</td><td>'+(s.last || '—')+'</td>' +
+        '<td>'+scoreCell+'</td>' +
         '<td><span class="badge '+statusClass(s.status)+'">'+s.status+'</span></td></tr>';
     }).join('');
   }
@@ -717,11 +723,13 @@
   Chart.defaults.color = '#5f5e5a';
   Chart.defaults.font.size = 12;
 
+  // No reviews have happened yet — these start flat and will reflect
+  // real numbers as tasks get assigned, submitted, and reviewed.
   new Chart(document.getElementById('trendChart'), {
     type: 'line',
     data: {
       labels: ['May','Jun','Jul','Aug','Sep'],
-      datasets: [{ label: 'Avg score', data: [66,70,72,75,79], borderColor: '#185fa5', backgroundColor: 'rgba(24,95,165,0.12)', fill: true, tension: 0.3 }]
+      datasets: [{ label: 'Avg score', data: [0,0,0,0,0], borderColor: '#185fa5', backgroundColor: 'rgba(24,95,165,0.12)', fill: true, tension: 0.3 }]
     },
     options: { plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 } } }
   });
@@ -729,17 +737,17 @@
   new Chart(document.getElementById('leaderChart'), {
     type: 'bar',
     data: {
-      labels: STORES.map(function(s){return s.name.split(' ')[0];}),
-      datasets: [{ label: 'Score', data: STORES.map(function(s){return s.score;}), backgroundColor: '#1d9e75' }]
+      labels: STORES.map(function(s){return s.name;}),
+      datasets: [{ label: 'Score', data: STORES.map(function(s){return s.score === null ? 0 : s.score;}), backgroundColor: '#1d9e75' }]
     },
-    options: { plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 } } }
+    options: { plugins: { legend: { display: false } }, indexAxis: 'y', scales: { x: { min: 0, max: 100 } } }
   });
 
   new Chart(document.getElementById('paramChart'), {
     type: 'bar',
     data: {
       labels: PARAMS,
-      datasets: [{ label: 'Pass rate', data: [88, 76, 61, 84, 70, 92], backgroundColor: '#d85a30' }]
+      datasets: [{ label: 'Pass rate', data: [0, 0, 0, 0, 0, 0], backgroundColor: '#d85a30' }]
     },
     options: { plugins: { legend: { display: false } }, indexAxis: 'y', scales: { x: { min: 0, max: 100 } } }
   });
