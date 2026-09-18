@@ -274,7 +274,7 @@
 <script>
 (function(){
   // ---- Paste your deployed Apps Script Web app URL here after Step 4 ----
-  var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz_MHN1oIcF-Dg-UI7EE13yOKjtM5mqPiJZZ2UVVAxYTXDwOAkSpEku1j6zb5RhnLZC/exec';
+  var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbypOIdjeOAV4w5gSs_XU570Vy4QZMR_yKJKKACAmGut_JIlCbzuozisSQyCiK2v5l_i/exec';
 
   var PARAMS = ['Cleanliness', 'Planogram compliance', 'Signage placement', 'Stock presentation', 'Lighting', 'Price tag accuracy'];
 
@@ -344,7 +344,7 @@
       errEl.style.display = 'block';
       return;
     }
-    if (APPS_SCRIPT_URL.indexOf('PASTE_YOUR_WEB_APP_URL_HERE') !== -1){
+    if (!backendConfigured()){
       errEl.textContent = 'Apps Script URL not set yet — paste your deployed Web app URL into APPS_SCRIPT_URL at the top of this file.';
       errEl.style.display = 'block';
       return;
@@ -381,12 +381,23 @@
   document.getElementById('logoutBtnHo').addEventListener('click', showLoginScreen);
   document.getElementById('logoutBtnStore').addEventListener('click', showLoginScreen);
 
-  // Sends credentials as form data (not JSON) to avoid a CORS preflight
-  // that Apps Script web apps don't handle well.
+  // Calls the Apps Script backend. Sends JSON as text/plain (a CORS-safelisted
+  // content type) to avoid a preflight request that Apps Script web apps
+  // don't handle well; the body is still parsed as JSON on the server.
+  function callBackend(payload){
+    return fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    }).then(function(res){ return res.json(); });
+  }
+
+  function backendConfigured(){
+    return APPS_SCRIPT_URL.indexOf('PASTE_YOUR_WEB_APP_URL_HERE') === -1;
+  }
+
   function checkLogin(loginId, password){
-    var body = new URLSearchParams({ storeId: loginId, password: password });
-    return fetch(APPS_SCRIPT_URL, { method: 'POST', body: body })
-      .then(function(res){ return res.json(); });
+    return callBackend({ action: 'login', storeId: loginId, password: password });
   }
 
   document.querySelectorAll('#view-coordinator .tab').forEach(function(t){
@@ -545,6 +556,21 @@
     var allPassed = passCount === PARAMS.length;
     var msgEl = document.getElementById('reviewMsg');
 
+    // Best-effort: logs the decision back onto the same row in the
+    // Submissions Log sheet. Doesn't block the coordinator's flow either way.
+    function pushReviewToBackend(result, failedParams){
+      if (!backendConfigured() || !activeReviewTaskRef.submissionId) return;
+      callBackend({
+        action: 'review',
+        submissionId: activeReviewTaskRef.submissionId,
+        result: result,
+        scores: scores,
+        failedParams: failedParams || [],
+        comments: comments
+      }).catch(function(){ /* Sheet log update failed — the review itself still went through locally. */ });
+    }
+    var activeReviewTaskRef = activeReviewTask;
+
     if (allPassed){
       var report = { id: 'r'+(reportIdSeq++), storeId: activeReviewTask.storeId, storeName: activeReviewTask.storeName,
         date: today, note: activeReviewTask.note, photos: activeReviewTask.photos, scores: scores, overall: 100, comments: comments, submitterNote: activeReviewTask.submitterNote || '' };
@@ -552,6 +578,7 @@
       activeReviewTask.status = 'reviewed';
       activeReviewTask.rejected = false;
       activeReviewTask.rejectionNote = '';
+      pushReviewToBackend('approved');
 
       var store = STORES.filter(function(s){return s.id===activeReviewTask.storeId;})[0];
       if (store){ store.score = 100; store.status = 'Reviewed'; store.last = today; }
@@ -571,6 +598,7 @@
       activeReviewTask.rejected = true;
       activeReviewTask.rejectionNote = 'Failed: ' + failed.join(', ') + (comments !== 'No additional comments.' ? ' — ' + comments : '');
       activeReviewTask.photos = [];
+      pushReviewToBackend('rejected', failed);
 
       msgEl.className = 'banner bad';
       msgEl.textContent = 'Sent back to ' + activeReviewTask.storeName + ' — needs resubmission for: ' + failed.join(', ') + '.';
@@ -679,6 +707,7 @@
 
   var activeSubmitTask = null;
   var pendingPhotos = [];
+  var pendingFiles = []; // {filename, mimeType} — same index as pendingPhotos, for the Drive upload
 
   function renderStoreTasks(){
     if (!loggedInStore) return;
@@ -705,6 +734,7 @@
   function openSubmit(taskId){
     activeSubmitTask = tasks.filter(function(t){return t.id===taskId;})[0];
     pendingPhotos = [];
+    pendingFiles = [];
     document.getElementById('submitTaskTitle').textContent = activeSubmitTask.storeName + ' — ' + activeSubmitTask.note;
     var noteEl = document.getElementById('submitRejectionNote');
     if (activeSubmitTask.rejected){
@@ -727,6 +757,7 @@
       var reader = new FileReader();
       reader.onload = function(e){
         pendingPhotos.push(e.target.result);
+        pendingFiles.push({ filename: file.name, mimeType: file.type || 'image/jpeg' });
         var img = document.createElement('img');
         img.src = e.target.result;
         document.getElementById('submitPhotos').appendChild(img);
@@ -737,17 +768,60 @@
 
   document.getElementById('submitBtn').addEventListener('click', function(){
     var err = document.getElementById('submitError');
+    var btn = document.getElementById('submitBtn');
     if (!pendingPhotos.length){
       err.textContent = 'Add at least one photo before submitting.';
       err.style.display = 'block';
       return;
     }
     err.style.display = 'none';
-    activeSubmitTask.photos = pendingPhotos;
-    activeSubmitTask.submitterNote = document.getElementById('submitNotes').value.trim();
-    activeSubmitTask.status = 'submitted';
-    document.getElementById('submitDetail').style.display = 'none';
-    renderStoreTasks();
+
+    var note = document.getElementById('submitNotes').value.trim();
+    var task = activeSubmitTask;
+
+    function finalizeLocally(){
+      task.photos = pendingPhotos;
+      task.submitterNote = note;
+      task.status = 'submitted';
+      document.getElementById('submitDetail').style.display = 'none';
+      renderStoreTasks();
+    }
+
+    if (!backendConfigured()){
+      // No Drive/Sheet backend wired up yet — falls back to local-only, same as before.
+      finalizeLocally();
+      return;
+    }
+
+    btn.disabled = true;
+    var originalLabel = btn.innerHTML;
+    btn.innerHTML = 'Uploading photos to Drive…';
+
+    callBackend({
+      action: 'submit',
+      storeId: task.storeId,
+      storeName: task.storeName,
+      taskNote: task.note,
+      storeManagerNote: note,
+      photos: pendingPhotos.map(function(dataUrl, i){
+        return { base64: dataUrl, filename: pendingFiles[i].filename, mimeType: pendingFiles[i].mimeType };
+      })
+    }).then(function(result){
+      btn.disabled = false;
+      btn.innerHTML = originalLabel;
+      if (result.success){
+        task.submissionId = result.submissionId;
+        finalizeLocally();
+      } else {
+        err.textContent = 'Could not save to Drive/Sheet (reason: ' + (result.reason || 'unknown') + '). Nothing was submitted — try again.';
+        err.style.display = 'block';
+      }
+    }).catch(function(){
+      btn.disabled = false;
+      btn.innerHTML = originalLabel;
+      err.textContent = 'Could not reach the backend — check your connection and the Apps Script URL. Nothing was submitted.';
+      err.style.display = 'block';
+    });
   });
 
   Chart.defaults.color = '#5f5e5a';
