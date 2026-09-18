@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VM Task & Review Tracker</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+</head>
+<body>
+<!-- VM Task & Review Tracker prototype -->
+<style>
+  :root {
+    --bg: #f6f5f2; --card: #ffffff; --border: rgba(0,0,0,0.1); --border-strong: rgba(0,0,0,0.18);
+    --text: #1c1c1a; --text-2: #5f5e5a; --text-3: #888780;
+    --accent: #185fa5; --accent-bg: #e6f1fb; --accent-text: #0c447c;
+    --good: #3b6d11; --good-bg: #eaf3de; --good-text: #27500a;
+    --warn: #854f0b; --warn-bg: #faeeda; --warn-text: #633806;
+    --bad: #a32d2d; --bad-bg: #fcebeb; --bad-text: #791f1f;
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #201f1c; --card: #2c2b28; --border: rgba(255,255,255,0.12); --border-strong: rgba(255,255,255,0.22);
+      --text: #f1efe8; --text-2: #b4b2a9; --text-3: #888780;
+      --accent-bg: #0c447c; --accent-text: #b5d4f4;
+      --good-bg: #27500a; --good-text: #c0dd97;
+      --warn-bg: #633806; --warn-text: #fac775;
+      --bad-bg: #791f1f; --bad-text: #f7c1c1;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #201f1c; --card: #2c2b28; --border: rgba(255,255,255,0.12); --border-strong: rgba(255,255,255,0.22);
+    --text: #f1efe8; --text-2: #b4b2a9; --text-3: #888780;
+    --accent-bg: #0c447c; --accent-text: #b5d4f4;
+    --good-bg: #27500a; --good-text: #c0dd97;
+    --warn-bg: #633806; --warn-text: #fac775;
+    --bad-bg: #791f1f; --bad-text: #f7c1c1;
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, "Segoe UI", Roboto, sans-serif; margin: 0; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 20px 16px 60px; }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
+  .sub { color: var(--text-2); font-size: 13px; margin: 0 0 20px; }
+  .role-toggle { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 999px; padding: 2px; margin-bottom: 18px; }
+  .role-toggle button { border: none; border-radius: 999px; padding: 6px 14px; font-size: 12px; font-weight: 500; background: transparent; color: var(--text-2); }
+  .role-toggle button.active { background: var(--accent); color: #fff; }
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 20px; overflow-x: auto; }
+  .tab { padding: 10px 14px; font-size: 13px; font-weight: 500; color: var(--text-2); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 20px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+  .card .label { font-size: 12px; color: var(--text-3); margin-bottom: 6px; }
+  .card .value { font-size: 22px; font-weight: 600; }
+  .card .value.good { color: var(--good-text); }
+  .card .value.warn { color: var(--warn-text); }
+  .section-title { font-size: 14px; font-weight: 600; margin: 24px 0 10px; }
+  select, input, textarea, button { font-family: inherit; font-size: 13px; border: 1px solid var(--border-strong); border-radius: 8px; padding: 7px 10px; background: var(--card); color: var(--text); }
+  button { cursor: pointer; }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 500; }
+  button.ghost { background: transparent; }
+  table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; font-size: 13px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); }
+  th { color: var(--text-3); font-weight: 500; font-size: 12px; }
+  tr:last-child td { border-bottom: none; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 500; }
+  .badge.good { background: var(--good-bg); color: var(--good-text); }
+  .badge.warn { background: var(--warn-bg); color: var(--warn-text); }
+  .badge.bad { background: var(--bad-bg); color: var(--bad-text); }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 12px; color: var(--text-2); }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+  .queue-list { display: flex; flex-direction: column; gap: 8px; }
+  .queue-item { display: flex; justify-content: space-between; align-items: center; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; cursor: pointer; }
+  .queue-item:hover { border-color: var(--border-strong); }
+  .queue-item .meta { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+  .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; margin-bottom: 16px; }
+  .photo-grid img { width: 100%; height: 90px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); }
+  .upload-box { border: 1.5px dashed var(--border-strong); border-radius: var(--radius); padding: 16px; text-align: center; background: var(--card); min-height: 90px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; }
+  .upload-box .hint { font-size: 12px; color: var(--text-3); }
+  .param-grid { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+  .param-row { display: flex; align-items: center; justify-content: space-between; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; font-size: 13px; }
+  .param-row .btns { display: flex; gap: 4px; }
+  .param-row .btns button { padding: 4px 10px; font-size: 12px; }
+  .param-row .btns button.on-pass { background: var(--good-bg); color: var(--good-text); border-color: var(--good-bg); }
+  .param-row .btns button.on-fail { background: var(--bad-bg); color: var(--bad-text); border-color: var(--bad-bg); }
+  .report { background: #fff; color: #1c1c1a; border-radius: var(--radius); padding: 24px; max-width: 640px; margin: 0 auto; border: 1px solid var(--border); }
+  .report h2 { margin: 0 0 2px; font-size: 17px; }
+  .report .meta { font-size: 12px; color: #5f5e5a; margin-bottom: 16px; }
+  .report .photo-grid img { height: 100px; }
+  .report .score-line { display: flex; justify-content: space-between; font-size: 13px; margin: 4px 0; }
+  .empty { color: var(--text-3); font-size: 13px; padding: 30px 0; text-align: center; }
+  .chart-wrap { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 16px; }
+  .chart-wrap canvas { max-height: 220px; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .store-tag { font-size: 11px; padding: 2px 8px; background: var(--accent-bg); color: var(--accent-text); border-radius: 999px; }
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+  .filters label { font-size: 12px; color: var(--text-2); margin-right: -4px; }
+  .icon-btn { padding: 4px 8px; }
+  .banner { border-radius: var(--radius); padding: 10px 14px; font-size: 13px; margin-bottom: 14px; }
+  .banner.bad { background: var(--bad-bg); color: var(--bad-text); }
+  .banner.good { background: var(--good-bg); color: var(--good-text); }
+  @media print {
+    .role-toggle, .tabs, .filters, #downloadAllBtn, #reportListWrap, #reportPreviewEmpty { display: none !important; }
+    #panel-report { display: block !important; }
+    #panel-report .report { page-break-after: always; margin-bottom: 0; }
+  }
+  @media (max-width: 640px) { .form-grid, .two-col, .report .photo-grid { grid-template-columns: 1fr; } }
+</style>
+
+<div class="wrap">
+  <h1>VM task & review tracker</h1>
+  <p class="sub">Prototype — assign tasks, collect store photos, score and save, auto-build reports and analytics</p>
+
+  <div class="role-toggle">
+    <button class="active" data-role="coordinator">HO coordinator view</button>
+    <button data-role="store">Store manager view</button>
+  </div>
+
+  <div id="view-coordinator">
+    <div class="tabs">
+      <div class="tab active" data-tab="dashboard">Dashboard</div>
+      <div class="tab" data-tab="assign">Assign task</div>
+      <div class="tab" data-tab="review">Review queue</div>
+      <div class="tab" data-tab="report">Report</div>
+      <div class="tab" data-tab="analytics">Analytics</div>
+    </div>
+
+    <div class="panel active" id="panel-dashboard">
+      <div class="cards" id="summaryCards"></div>
+      <div class="section-title">Stores</div>
+      <table id="storeTable">
+        <thead><tr><th>Store</th><th>Region</th><th>Last reviewed</th><th>Score</th><th>Status</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="panel" id="panel-assign">
+      <div class="section-title" style="margin-top:0">Assign a VM task</div>
+      <div class="form-grid">
+        <div class="field"><label>Store</label>
+          <select id="aStore"></select>
+        </div>
+        <div class="field"><label>Due date</label>
+          <input type="date" id="aDue">
+        </div>
+        <div class="field" style="grid-column: 1 / -1;"><label>Instructions / category</label>
+          <input type="text" id="aNote" placeholder="e.g. Monthly VM photos, Diwali window display">
+        </div>
+      </div>
+      <button class="primary" id="assignBtn"><i class="ti ti-send" style="vertical-align:-2px;margin-right:4px"></i>Assign task</button>
+      <div class="section-title">Open tasks</div>
+      <div class="queue-list" id="openTasks"></div>
+    </div>
+
+    <div class="panel" id="panel-review">
+      <div class="section-title" style="margin-top:0">Pending review</div>
+      <div class="queue-list" id="reviewQueue"></div>
+
+      <div id="reviewDetail" style="display:none; margin-top: 20px;">
+        <div class="section-title" style="margin-top:0" id="reviewStoreTitle"></div>
+        <div class="photo-grid" id="reviewPhotos"></div>
+        <div class="section-title">Score against the 6 VM parameters</div>
+        <div class="param-grid" id="paramGrid"></div>
+        <div class="field" style="margin-bottom: 14px;">
+          <label>Comments</label>
+          <textarea id="rComments" rows="2" placeholder="What's good, what needs fixing"></textarea>
+        </div>
+        <div id="reviewError" style="display:none; color: var(--bad-text); font-size: 13px; margin-bottom: 10px;"></div>
+        <button class="primary" id="saveReviewBtn"><i class="ti ti-device-floppy" style="vertical-align:-2px;margin-right:4px"></i>Save review</button>
+        <div style="font-size:12px;color:var(--text-3);margin-top:8px;">Saves as an approved report only if all 6 parameters pass. Any fail sends it back to the store manager to fix and resubmit.</div>
+      </div>
+
+      <div id="reviewMsg" style="display:none; margin-top: 16px;"></div>
+    </div>
+
+    <div class="panel" id="panel-report">
+      <div class="section-title" style="margin-top:0">Reports</div>
+      <div class="filters">
+        <label>Store</label>
+        <select id="repStore"></select>
+        <label>From</label>
+        <input type="date" id="repFrom">
+        <label>To</label>
+        <input type="date" id="repTo">
+        <button class="ghost" id="repClear">Clear filters</button>
+      </div>
+
+      <div id="reportListWrap">
+        <table id="reportTable">
+          <thead><tr><th>Store</th><th>Date</th><th>Result</th><th></th></tr></thead>
+          <tbody id="reportTableBody"></tbody>
+        </table>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;margin:14px 0;">
+        <button class="primary" id="downloadAllBtn"><i class="ti ti-download" style="vertical-align:-2px;margin-right:4px"></i>Download matching reports</button>
+      </div>
+
+      <div id="reportPreviewEmpty" class="empty">Click a report above to preview it, or download all matching reports.</div>
+      <div id="reportPrintArea"></div>
+    </div>
+
+    <div class="panel" id="panel-analytics">
+      <div class="chart-wrap">
+        <div class="section-title" style="margin-top:0">Overall average score over time</div>
+        <canvas id="trendChart"></canvas>
+      </div>
+      <div class="two-col">
+        <div class="chart-wrap">
+          <div class="section-title" style="margin-top:0">Store-by-store leaderboard</div>
+          <canvas id="leaderChart"></canvas>
+        </div>
+        <div class="chart-wrap">
+          <div class="section-title" style="margin-top:0">Score by parameter (network-wide)</div>
+          <canvas id="paramChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="view-store" style="display:none">
+    <div class="section-title" style="margin-top:0">Your assigned tasks</div>
+    <div class="queue-list" id="storeTasks"></div>
+
+    <div id="submitDetail" style="display:none; margin-top: 20px;">
+      <div class="section-title" style="margin-top:0" id="submitTaskTitle"></div>
+      <div id="submitRejectionNote" class="banner bad" style="display:none;"></div>
+      <div class="photo-grid" id="submitPhotos"></div>
+      <div class="upload-box" id="uploadBox">
+        <i class="ti ti-upload" style="font-size:20px;color:var(--text-3)"></i>
+        <div class="hint">Add VM photos (you can add several)</div>
+        <input type="file" accept="image/*" multiple id="uploadInput" style="display:none">
+      </div>
+      <button class="primary" id="submitBtn" style="margin-top:14px"><i class="ti ti-check" style="vertical-align:-2px;margin-right:4px"></i>Submit photos</button>
+      <div id="submitError" style="display:none; color: var(--bad-text); font-size: 13px; margin-top: 8px;"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+(function(){
+  var PARAMS = ['Cleanliness', 'Planogram compliance', 'Signage placement', 'Stock presentation', 'Lighting', 'Price tag accuracy'];
+
+  var STORES = [
+    { id: 's1', name: 'Andheri West', region: 'Mumbai', score: 88, last: '2026-09-10', status: 'Reviewed' },
+    { id: 's2', name: 'Bandra Linking Rd', region: 'Mumbai', score: 62, last: '2026-08-28', status: 'Overdue' },
+    { id: 's3', name: 'Powai Hub Mall', region: 'Mumbai', score: 91, last: '2026-09-14', status: 'Reviewed' },
+    { id: 's4', name: 'Koregaon Park', region: 'Pune', score: 74, last: '2026-09-05', status: 'Pending review' },
+    { id: 's5', name: 'MG Road', region: 'Pune', score: 55, last: '2026-08-20', status: 'Overdue' },
+    { id: 's6', name: 'Indiranagar', region: 'Bengaluru', score: 83, last: '2026-09-12', status: 'Reviewed' }
+  ];
+
+  var tasks = [
+    { id: 't1', storeId: 's4', storeName: 'Koregaon Park', due: '2026-09-20', note: 'Monthly VM photos', status: 'submitted', rejected: false, rejectionNote: '', photos: seedPhotos(4) },
+    { id: 't2', storeId: 's2', storeName: 'Bandra Linking Rd', due: '2026-09-22', note: 'Entrance display refresh', status: 'open', rejected: false, rejectionNote: '', photos: [] },
+    { id: 't3', storeId: 's5', storeName: 'MG Road', due: '2026-09-18', note: 'Monthly VM photos', status: 'open', rejected: true, rejectionNote: 'Failed: Signage placement, Lighting — please retake those angles and resubmit.', photos: [] }
+  ];
+
+  var reportIdSeq = 1;
+  var reports = [
+    { id: 'r'+(reportIdSeq++), storeId: 's1', storeName: 'Andheri West', date: '2026-08-15', note: 'Monthly VM photos', photos: seedPhotos(3), scores: allPass(), overall: 100, comments: 'Clean and compliant.' },
+    { id: 'r'+(reportIdSeq++), storeId: 's3', storeName: 'Powai Hub Mall', date: '2026-09-01', note: 'Monthly VM photos', photos: seedPhotos(3), scores: allPass(), overall: 100, comments: 'Great signage this month.' },
+    { id: 'r'+(reportIdSeq++), storeId: 's3', storeName: 'Powai Hub Mall', date: '2026-09-14', note: 'Festive window display', photos: seedPhotos(4), scores: allPass(), overall: 100, comments: 'Approved on first pass.' },
+    { id: 'r'+(reportIdSeq++), storeId: 's6', storeName: 'Indiranagar', date: '2026-09-12', note: 'Monthly VM photos', photos: seedPhotos(3), scores: allPass(), overall: 100, comments: 'All good.' }
+  ];
+
+  function allPass(){
+    var s = {};
+    PARAMS.forEach(function(p){ s[p] = 'pass'; });
+    return s;
+  }
+
+  function seedPhotos(n){
+    var out = [];
+    for (var i=0;i<n;i++){ out.push('https://placehold.co/300x220/e6f1fb/0c447c?text=VM+photo+' + (i+1)); }
+    return out;
+  }
+
+  function scoreClass(score){ return score >= 80 ? 'good' : score >= 65 ? 'warn' : 'bad'; }
+  function statusClass(status){ return status === 'Reviewed' ? 'good' : status === 'Pending review' ? 'warn' : 'bad'; }
+
+  document.querySelectorAll('.role-toggle button').forEach(function(b){
+    b.addEventListener('click', function(){
+      document.querySelectorAll('.role-toggle button').forEach(function(x){ x.classList.remove('active'); });
+      b.classList.add('active');
+      var role = b.dataset.role;
+      document.getElementById('view-coordinator').style.display = role === 'coordinator' ? 'block' : 'none';
+      document.getElementById('view-store').style.display = role === 'store' ? 'block' : 'none';
+      if (role === 'store') renderStoreTasks();
+    });
+  });
+
+  document.querySelectorAll('#view-coordinator .tab').forEach(function(t){
+    t.addEventListener('click', function(){
+      document.querySelectorAll('#view-coordinator .tab').forEach(function(x){ x.classList.remove('active'); });
+      document.querySelectorAll('#view-coordinator .panel').forEach(function(x){ x.classList.remove('active'); });
+      t.classList.add('active');
+      document.getElementById('panel-' + t.dataset.tab).classList.add('active');
+      if (t.dataset.tab === 'review') renderReviewQueue();
+      if (t.dataset.tab === 'assign') renderOpenTasks();
+    });
+  });
+
+  function switchTab(name){
+    document.querySelectorAll('#view-coordinator .tab').forEach(function(x){ x.classList.toggle('active', x.dataset.tab===name); });
+    document.querySelectorAll('#view-coordinator .panel').forEach(function(x){ x.classList.toggle('active', x.id==='panel-'+name); });
+  }
+
+  function renderSummary(){
+    var avg = Math.round(STORES.reduce(function(a,s){return a+s.score;},0) / STORES.length);
+    var overdue = STORES.filter(function(s){return s.status==='Overdue';}).length;
+    var pending = tasks.filter(function(t){return t.status==='submitted';}).length;
+    var cards = [
+      { label: 'Stores reviewed this month', value: STORES.filter(function(s){return s.status==='Reviewed';}).length, cls:'good' },
+      { label: 'Awaiting your review', value: pending, cls: pending>0?'warn':'' },
+      { label: 'Avg VM score', value: avg + '%', cls: scoreClass(avg)==='bad'?'warn':scoreClass(avg) },
+      { label: 'Overdue stores', value: overdue, cls: overdue>0?'warn':'' }
+    ];
+    document.getElementById('summaryCards').innerHTML = cards.map(function(c){
+      return '<div class="card"><div class="label">'+c.label+'</div><div class="value '+c.cls+'">'+c.value+'</div></div>';
+    }).join('');
+  }
+
+  function renderStoreTable(){
+    document.querySelector('#storeTable tbody').innerHTML = STORES.map(function(s){
+      return '<tr><td>'+s.name+'</td><td>'+s.region+'</td><td>'+s.last+'</td>' +
+        '<td><span class="badge '+scoreClass(s.score)+'">'+s.score+'%</span></td>' +
+        '<td><span class="badge '+statusClass(s.status)+'">'+s.status+'</span></td></tr>';
+    }).join('');
+  }
+
+  function populateSelect(el, opts){
+    el.innerHTML = opts.map(function(o){ return '<option value="'+o.id+'">'+o.name+'</option>'; }).join('');
+  }
+
+  populateSelect(document.getElementById('aStore'), STORES);
+  document.getElementById('aDue').value = new Date(Date.now()+7*86400000).toISOString().slice(0,10);
+
+  document.getElementById('assignBtn').addEventListener('click', function(){
+    var storeId = document.getElementById('aStore').value;
+    var store = STORES.filter(function(s){return s.id===storeId;})[0];
+    var due = document.getElementById('aDue').value;
+    var note = document.getElementById('aNote').value || 'VM photos';
+    tasks.push({ id: 't'+(tasks.length+1), storeId: storeId, storeName: store.name, due: due, note: note, status: 'open', photos: [] });
+    document.getElementById('aNote').value = '';
+    renderOpenTasks();
+  });
+
+  function renderOpenTasks(){
+    var open = tasks.filter(function(t){ return t.status === 'open'; });
+    var el = document.getElementById('openTasks');
+    if (!open.length){ el.innerHTML = '<div class="empty">No open tasks — every store has submitted or nothing new assigned</div>'; return; }
+    el.innerHTML = open.map(function(t){
+      var badge = t.rejected ? '<span class="badge bad">Needs resubmission</span>' : '<span class="badge warn">Open</span>';
+      var meta = t.rejected ? t.rejectionNote : ('Due '+t.due+' &middot; waiting on store manager');
+      return '<div class="queue-item"><div><div><strong>'+t.storeName+'</strong> <span class="store-tag">'+t.note+'</span></div>' +
+        '<div class="meta">'+meta+'</div></div>' + badge + '</div>';
+    }).join('');
+  }
+  renderOpenTasks();
+
+  var activeReviewTask = null;
+
+  function renderReviewQueue(){
+    var submitted = tasks.filter(function(t){ return t.status === 'submitted'; });
+    var el = document.getElementById('reviewQueue');
+    if (!submitted.length){
+      el.innerHTML = '<div class="empty">Nothing waiting on you right now</div>';
+      document.getElementById('reviewDetail').style.display = 'none';
+      return;
+    }
+    el.innerHTML = submitted.map(function(t){
+      return '<div class="queue-item" data-task="'+t.id+'"><div><div><strong>'+t.storeName+'</strong> <span class="store-tag">'+t.note+'</span></div>' +
+        '<div class="meta">'+t.photos.length+' photos submitted &middot; due '+t.due+'</div></div>' +
+        '<span class="badge warn">Pending review</span></div>';
+    }).join('');
+    el.querySelectorAll('.queue-item').forEach(function(item){
+      item.addEventListener('click', function(){ openReview(item.dataset.task); });
+    });
+  }
+
+  function openReview(taskId){
+    activeReviewTask = tasks.filter(function(t){return t.id===taskId;})[0];
+    document.getElementById('reviewStoreTitle').textContent = activeReviewTask.storeName + ' — ' + activeReviewTask.note;
+    document.getElementById('reviewPhotos').innerHTML = activeReviewTask.photos.map(function(p){ return '<img src="'+p+'">'; }).join('');
+    document.getElementById('paramGrid').innerHTML = PARAMS.map(function(p,i){
+      return '<div class="param-row"><span>'+p+'</span><div class="btns" data-param="'+i+'">' +
+        '<button type="button" data-val="pass">Pass</button>' +
+        '<button type="button" data-val="fail">Fail</button></div></div>';
+    }).join('');
+    document.querySelectorAll('#paramGrid .btns').forEach(function(g){
+      g.querySelectorAll('button').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          g.querySelectorAll('button').forEach(function(b){ b.classList.remove('on-pass','on-fail'); });
+          btn.classList.add(btn.dataset.val === 'pass' ? 'on-pass' : 'on-fail');
+        });
+      });
+    });
+    document.getElementById('rComments').value = '';
+    document.getElementById('reviewError').style.display = 'none';
+    document.getElementById('reviewMsg').style.display = 'none';
+    document.getElementById('reviewDetail').style.display = 'block';
+  }
+
+  document.getElementById('saveReviewBtn').addEventListener('click', function(){
+    if (!activeReviewTask) return;
+    var groups = document.querySelectorAll('#paramGrid .btns');
+    var scores = {};
+    var passCount = 0;
+    var unscored = 0;
+    groups.forEach(function(g){
+      var i = g.dataset.param;
+      var chosen = g.querySelector('.on-pass, .on-fail');
+      if (!chosen){ unscored++; return; }
+      var val = chosen.dataset.val;
+      scores[PARAMS[i]] = val;
+      if (val === 'pass') passCount++;
+    });
+
+    var errEl = document.getElementById('reviewError');
+    if (unscored > 0){
+      errEl.textContent = 'Mark pass or fail on every parameter before saving.';
+      errEl.style.display = 'block';
+      return;
+    }
+    errEl.style.display = 'none';
+
+    var comments = document.getElementById('rComments').value || 'No additional comments.';
+    var today = new Date().toISOString().slice(0,10);
+    var allPassed = passCount === PARAMS.length;
+    var msgEl = document.getElementById('reviewMsg');
+
+    if (allPassed){
+      var report = { id: 'r'+(reportIdSeq++), storeId: activeReviewTask.storeId, storeName: activeReviewTask.storeName,
+        date: today, note: activeReviewTask.note, photos: activeReviewTask.photos, scores: scores, overall: 100, comments: comments };
+      reports.push(report);
+      activeReviewTask.status = 'reviewed';
+      activeReviewTask.rejected = false;
+      activeReviewTask.rejectionNote = '';
+
+      var store = STORES.filter(function(s){return s.id===activeReviewTask.storeId;})[0];
+      if (store){ store.score = 100; store.status = 'Reviewed'; store.last = today; }
+
+      renderSummary();
+      renderStoreTable();
+      document.getElementById('reviewDetail').style.display = 'none';
+      activeReviewTask = null;
+      renderReviewQueue();
+      populateReportStoreFilter();
+      renderReportTable();
+      previewReports([report]);
+      switchTab('report');
+    } else {
+      var failed = PARAMS.filter(function(p){ return scores[p] === 'fail'; });
+      activeReviewTask.status = 'open';
+      activeReviewTask.rejected = true;
+      activeReviewTask.rejectionNote = 'Failed: ' + failed.join(', ') + (comments !== 'No additional comments.' ? ' — ' + comments : '');
+      activeReviewTask.photos = [];
+
+      msgEl.className = 'banner bad';
+      msgEl.textContent = 'Sent back to ' + activeReviewTask.storeName + ' — needs resubmission for: ' + failed.join(', ') + '.';
+      msgEl.style.display = 'block';
+
+      document.getElementById('reviewDetail').style.display = 'none';
+      activeReviewTask = null;
+      renderReviewQueue();
+      renderOpenTasks();
+      renderSummary();
+    }
+  });
+
+  function populateReportStoreFilter(){
+    var el = document.getElementById('repStore');
+    var current = el.value;
+    el.innerHTML = '<option value="">All stores</option>' + STORES.map(function(s){ return '<option value="'+s.id+'">'+s.name+'</option>'; }).join('');
+    el.value = current || '';
+  }
+
+  function matchingReports(){
+    var storeId = document.getElementById('repStore').value;
+    var from = document.getElementById('repFrom').value;
+    var to = document.getElementById('repTo').value;
+    return reports.filter(function(r){
+      if (storeId && r.storeId !== storeId) return false;
+      if (from && r.date < from) return false;
+      if (to && r.date > to) return false;
+      return true;
+    }).sort(function(a,b){ return a.date < b.date ? 1 : -1; });
+  }
+
+  function renderReportTable(){
+    var rows = matchingReports();
+    var body = document.getElementById('reportTableBody');
+    if (!rows.length){
+      body.innerHTML = '<tr><td colspan="4" class="empty">No approved reports match these filters</td></tr>';
+      return;
+    }
+    body.innerHTML = rows.map(function(r){
+      return '<tr data-report="'+r.id+'" style="cursor:pointer"><td>'+r.storeName+'</td><td>'+r.date+'</td>' +
+        '<td><span class="badge good">'+PARAMS.length+'/'+PARAMS.length+' passed</span></td>' +
+        '<td><button class="ghost icon-btn" data-report-print="'+r.id+'"><i class="ti ti-printer"></i></button></td></tr>';
+    }).join('');
+    body.querySelectorAll('tr[data-report]').forEach(function(row){
+      row.addEventListener('click', function(e){
+        if (e.target.closest('[data-report-print]')) return;
+        var r = reports.filter(function(x){return x.id===row.dataset.report;})[0];
+        previewReports([r]);
+      });
+    });
+    body.querySelectorAll('[data-report-print]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var r = reports.filter(function(x){return x.id===btn.dataset.reportPrint;})[0];
+        previewReports([r]);
+        window.print();
+      });
+    });
+  }
+
+  function reportBlockHtml(r){
+    var rows = PARAMS.map(function(p){
+      var val = r.scores[p];
+      return '<div class="score-line"><span>'+p+'</span><span class="badge '+(val==='pass'?'good':'bad')+'">'+(val==='pass'?'Pass':'Fail')+'</span></div>';
+    }).join('');
+    return '<div class="report" style="margin-bottom:20px;"><h2>'+r.storeName+'</h2>' +
+      '<div class="meta">'+r.note+' &middot; approved '+r.date+'</div>' +
+      '<div class="photo-grid">' + r.photos.map(function(p){ return '<img src="'+p+'">'; }).join('') + '</div>' +
+      '<div style="margin:14px 0;">' + rows + '</div>' +
+      '<div style="font-size:13px;margin-bottom:10px;"><strong>Comments:</strong> '+r.comments+'</div>' +
+      '<div class="score-line" style="font-size:15px;"><strong>Result</strong><strong>All parameters passed</strong></div>' +
+      '<div style="font-size:11px;color:#888780;margin-top:14px;">Auto-generated on save &middot; VM task & review tracker</div></div>';
+  }
+
+  function previewReports(list){
+    document.getElementById('reportPrintArea').innerHTML = list.map(reportBlockHtml).join('');
+    document.getElementById('reportPreviewEmpty').style.display = list.length ? 'none' : 'block';
+  }
+
+  document.getElementById('downloadAllBtn').addEventListener('click', function(){
+    var rows = matchingReports();
+    if (!rows.length){ return; }
+    previewReports(rows);
+    setTimeout(function(){ window.print(); }, 50);
+  });
+
+  document.getElementById('repStore').addEventListener('change', renderReportTable);
+  document.getElementById('repFrom').addEventListener('change', renderReportTable);
+  document.getElementById('repTo').addEventListener('change', renderReportTable);
+  document.getElementById('repClear').addEventListener('click', function(){
+    document.getElementById('repStore').value = '';
+    document.getElementById('repFrom').value = '';
+    document.getElementById('repTo').value = '';
+    renderReportTable();
+  });
+
+  populateReportStoreFilter();
+  renderReportTable();
+  previewReports([]);
+
+  renderSummary();
+  renderStoreTable();
+
+  var activeSubmitTask = null;
+  var pendingPhotos = [];
+
+  function renderStoreTasks(){
+    var mine = tasks.filter(function(t){ return t.status === 'open'; });
+    var el = document.getElementById('storeTasks');
+    if (!mine.length){
+      el.innerHTML = '<div class="empty">No open tasks assigned right now</div>';
+      document.getElementById('submitDetail').style.display = 'none';
+      return;
+    }
+    el.innerHTML = mine.map(function(t){
+      var badge = t.rejected ? '<span class="badge bad">Needs resubmission</span>' : '<span class="badge warn">Open</span>';
+      var meta = t.rejected ? 'Rejected by HO coordinator — see details' : ('Due '+t.due);
+      return '<div class="queue-item" data-task="'+t.id+'"><div><div><strong>'+t.storeName+'</strong> <span class="store-tag">'+t.note+'</span></div>' +
+        '<div class="meta">'+meta+'</div></div>' + badge + '</div>';
+    }).join('');
+    el.querySelectorAll('.queue-item').forEach(function(item){
+      item.addEventListener('click', function(){ openSubmit(item.dataset.task); });
+    });
+  }
+
+  function openSubmit(taskId){
+    activeSubmitTask = tasks.filter(function(t){return t.id===taskId;})[0];
+    pendingPhotos = [];
+    document.getElementById('submitTaskTitle').textContent = activeSubmitTask.storeName + ' — ' + activeSubmitTask.note;
+    var noteEl = document.getElementById('submitRejectionNote');
+    if (activeSubmitTask.rejected){
+      noteEl.textContent = activeSubmitTask.rejectionNote;
+      noteEl.style.display = 'block';
+    } else {
+      noteEl.style.display = 'none';
+    }
+    document.getElementById('submitPhotos').innerHTML = '';
+    document.getElementById('submitError').style.display = 'none';
+    document.getElementById('submitDetail').style.display = 'block';
+  }
+
+  var uploadBox = document.getElementById('uploadBox');
+  var uploadInput = document.getElementById('uploadInput');
+  uploadBox.addEventListener('click', function(){ uploadInput.click(); });
+  uploadInput.addEventListener('change', function(){
+    Array.prototype.forEach.call(uploadInput.files, function(file){
+      var reader = new FileReader();
+      reader.onload = function(e){
+        pendingPhotos.push(e.target.result);
+        var img = document.createElement('img');
+        img.src = e.target.result;
+        document.getElementById('submitPhotos').appendChild(img);
+      };
+      reader.readAsDataURL(file);
+    });
+  });
+
+  document.getElementById('submitBtn').addEventListener('click', function(){
+    var err = document.getElementById('submitError');
+    if (!pendingPhotos.length){
+      err.textContent = 'Add at least one photo before submitting.';
+      err.style.display = 'block';
+      return;
+    }
+    err.style.display = 'none';
+    activeSubmitTask.photos = pendingPhotos;
+    activeSubmitTask.status = 'submitted';
+    document.getElementById('submitDetail').style.display = 'none';
+    renderStoreTasks();
+  });
+
+  Chart.defaults.color = '#5f5e5a';
+  Chart.defaults.font.size = 12;
+
+  new Chart(document.getElementById('trendChart'), {
+    type: 'line',
+    data: {
+      labels: ['May','Jun','Jul','Aug','Sep'],
+      datasets: [{ label: 'Avg score', data: [66,70,72,75,79], borderColor: '#185fa5', backgroundColor: 'rgba(24,95,165,0.12)', fill: true, tension: 0.3 }]
+    },
+    options: { plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 } } }
+  });
+
+  new Chart(document.getElementById('leaderChart'), {
+    type: 'bar',
+    data: {
+      labels: STORES.map(function(s){return s.name.split(' ')[0];}),
+      datasets: [{ label: 'Score', data: STORES.map(function(s){return s.score;}), backgroundColor: '#1d9e75' }]
+    },
+    options: { plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 } } }
+  });
+
+  new Chart(document.getElementById('paramChart'), {
+    type: 'bar',
+    data: {
+      labels: PARAMS,
+      datasets: [{ label: 'Pass rate', data: [88, 76, 61, 84, 70, 92], backgroundColor: '#d85a30' }]
+    },
+    options: { plugins: { legend: { display: false } }, indexAxis: 'y', scales: { x: { min: 0, max: 100 } } }
+  });
+})();
+</script>
+
+</body>
+</html>
