@@ -111,14 +111,28 @@
 
 <div class="wrap">
   <h1>VM task & review tracker</h1>
-  <p class="sub">Prototype — assign tasks, collect store photos, score and save, auto-build reports and analytics</p>
+  <p class="sub">Assign tasks, collect store photos, score and save, auto-build reports and analytics</p>
 
-  <div class="role-toggle">
-    <button class="active" data-role="coordinator">HO coordinator view</button>
-    <button data-role="store">Store manager view</button>
+  <div id="loginScreen" style="max-width:340px;">
+    <div class="section-title" style="margin-top:0">Log in</div>
+    <div class="field" style="margin-bottom:10px;">
+      <label>Login ID</label>
+      <input type="text" id="loginId" placeholder="Store ID, or HO login">
+    </div>
+    <div class="field" style="margin-bottom:10px;">
+      <label>Password</label>
+      <input type="password" id="loginPassword">
+    </div>
+    <button class="primary" id="loginBtn"><i class="ti ti-login" style="vertical-align:-2px;margin-right:4px"></i>Log in</button>
+    <div id="loginError" style="display:none; color: var(--bad-text); font-size: 13px; margin-top: 10px;"></div>
+    <div style="font-size:12px;color:var(--text-3);margin-top:10px;">Checked live against the VM Store Logins Google Sheet. Same login form for HO and store manager — the sheet decides which window you land on.</div>
   </div>
 
-  <div id="view-coordinator">
+  <div id="view-coordinator" style="display:none">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <div class="section-title" style="margin:0;">HO coordinator</div>
+      <button class="ghost" id="logoutBtnHo"><i class="ti ti-logout" style="vertical-align:-2px;margin-right:4px"></i>Log out</button>
+    </div>
     <div class="tabs">
       <div class="tab active" data-tab="dashboard">Dashboard</div>
       <div class="tab" data-tab="assign">Assign task</div>
@@ -221,41 +235,24 @@
   </div>
 
   <div id="view-store" style="display:none">
-    <div id="storeLogin" style="max-width:340px;">
-      <div class="section-title" style="margin-top:0">Store manager login</div>
-      <div class="field" style="margin-bottom:10px;">
-        <label>Store ID</label>
-        <input type="text" id="loginStoreId" placeholder="e.g. STORE-001">
-      </div>
-      <div class="field" style="margin-bottom:10px;">
-        <label>Password</label>
-        <input type="password" id="loginPassword">
-      </div>
-      <button class="primary" id="loginBtn"><i class="ti ti-login" style="vertical-align:-2px;margin-right:4px"></i>Log in</button>
-      <div id="loginError" style="display:none; color: var(--bad-text); font-size: 13px; margin-top: 10px;"></div>
-      <div style="font-size:12px;color:var(--text-3);margin-top:10px;">Checked live against the VM Store Logins Google Sheet — no separate password to remember here.</div>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <div class="section-title" style="margin:0;" id="storeWelcome"></div>
+      <button class="ghost" id="logoutBtnStore"><i class="ti ti-logout" style="vertical-align:-2px;margin-right:4px"></i>Log out</button>
     </div>
+    <div class="section-title" style="margin-top:0">Your assigned tasks</div>
+    <div class="queue-list" id="storeTasks"></div>
 
-    <div id="storeLoggedIn" style="display:none;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-        <div class="section-title" style="margin:0;" id="storeWelcome"></div>
-        <button class="ghost" id="logoutBtn"><i class="ti ti-logout" style="vertical-align:-2px;margin-right:4px"></i>Log out</button>
+    <div id="submitDetail" style="display:none; margin-top: 20px;">
+      <div class="section-title" style="margin-top:0" id="submitTaskTitle"></div>
+      <div id="submitRejectionNote" class="banner bad" style="display:none;"></div>
+      <div class="photo-grid" id="submitPhotos"></div>
+      <div class="upload-box" id="uploadBox">
+        <i class="ti ti-upload" style="font-size:20px;color:var(--text-3)"></i>
+        <div class="hint">Add VM photos (you can add several)</div>
+        <input type="file" accept="image/*" multiple id="uploadInput" style="display:none">
       </div>
-      <div class="section-title" style="margin-top:0">Your assigned tasks</div>
-      <div class="queue-list" id="storeTasks"></div>
-
-      <div id="submitDetail" style="display:none; margin-top: 20px;">
-        <div class="section-title" style="margin-top:0" id="submitTaskTitle"></div>
-        <div id="submitRejectionNote" class="banner bad" style="display:none;"></div>
-        <div class="photo-grid" id="submitPhotos"></div>
-        <div class="upload-box" id="uploadBox">
-          <i class="ti ti-upload" style="font-size:20px;color:var(--text-3)"></i>
-          <div class="hint">Add VM photos (you can add several)</div>
-          <input type="file" accept="image/*" multiple id="uploadInput" style="display:none">
-        </div>
-        <button class="primary" id="submitBtn" style="margin-top:14px"><i class="ti ti-check" style="vertical-align:-2px;margin-right:4px"></i>Submit photos</button>
-        <div id="submitError" style="display:none; color: var(--bad-text); font-size: 13px; margin-top: 8px;"></div>
-      </div>
+      <button class="primary" id="submitBtn" style="margin-top:14px"><i class="ti ti-check" style="vertical-align:-2px;margin-right:4px"></i>Submit photos</button>
+      <div id="submitError" style="display:none; color: var(--bad-text); font-size: 13px; margin-top: 8px;"></div>
     </div>
   </div>
 </div>
@@ -264,7 +261,7 @@
 <script>
 (function(){
   // ---- Paste your deployed Apps Script Web app URL here after Step 4 ----
-  var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby6pbOE3_lVR8jgRPPvl2AX_umY2bryFpHuCmGknu1PYJw_JuOrLD3iBMgPXdcXL9ZF/exec';
+  var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxjAKX_bY6dAVJZjXgVDCqI2KFakDYeAy2lEFPBElP2K-9yThCPLCHI5fMKDwrdNFFQ/exec';
 
   var PARAMS = ['Cleanliness', 'Planogram compliance', 'Signage placement', 'Stock presentation', 'Lighting', 'Price tag accuracy'];
 
@@ -306,37 +303,28 @@
   function scoreClass(score){ return score >= 80 ? 'good' : score >= 65 ? 'warn' : 'bad'; }
   function statusClass(status){ return status === 'Reviewed' ? 'good' : status === 'Pending review' ? 'warn' : 'bad'; }
 
-  document.querySelectorAll('.role-toggle button').forEach(function(b){
-    b.addEventListener('click', function(){
-      document.querySelectorAll('.role-toggle button').forEach(function(x){ x.classList.remove('active'); });
-      b.classList.add('active');
-      var role = b.dataset.role;
-      document.getElementById('view-coordinator').style.display = role === 'coordinator' ? 'block' : 'none';
-      document.getElementById('view-store').style.display = role === 'store' ? 'block' : 'none';
-      if (role === 'store') showLoginScreen();
-    });
-  });
-
-  // ---- Store manager login (checked live against the Sheet via Apps Script) ----
+  // ---- Login (single form, checked live against the Sheet via Apps Script).
+  // The sheet's Role column decides whether this lands on the HO or store window.
   var loggedInStore = null;
 
   function showLoginScreen(){
     loggedInStore = null;
-    document.getElementById('storeLogin').style.display = 'block';
-    document.getElementById('storeLoggedIn').style.display = 'none';
-    document.getElementById('loginStoreId').value = '';
+    document.getElementById('loginScreen').style.display = 'block';
+    document.getElementById('view-coordinator').style.display = 'none';
+    document.getElementById('view-store').style.display = 'none';
+    document.getElementById('loginId').value = '';
     document.getElementById('loginPassword').value = '';
     document.getElementById('loginError').style.display = 'none';
   }
 
   document.getElementById('loginBtn').addEventListener('click', function(){
-    var storeId = document.getElementById('loginStoreId').value.trim();
+    var loginId = document.getElementById('loginId').value.trim();
     var password = document.getElementById('loginPassword').value;
     var errEl = document.getElementById('loginError');
     var btn = document.getElementById('loginBtn');
 
-    if (!storeId || !password){
-      errEl.textContent = 'Enter both a Store ID and a password.';
+    if (!loginId || !password){
+      errEl.textContent = 'Enter both a login ID and a password.';
       errEl.style.display = 'block';
       return;
     }
@@ -349,16 +337,21 @@
     errEl.style.display = 'none';
     btn.disabled = true;
 
-    checkStoreLogin(storeId, password).then(function(result){
+    checkLogin(loginId, password).then(function(result){
       btn.disabled = false;
       if (result.success){
-        loggedInStore = { storeId: storeId, storeName: result.storeName, region: result.region };
-        document.getElementById('storeLogin').style.display = 'none';
-        document.getElementById('storeLoggedIn').style.display = 'block';
-        document.getElementById('storeWelcome').textContent = 'Welcome, ' + result.storeName;
-        renderStoreTasks();
+        var role = (result.role || '').trim().toLowerCase();
+        document.getElementById('loginScreen').style.display = 'none';
+        if (role === 'ho'){
+          document.getElementById('view-coordinator').style.display = 'block';
+        } else {
+          loggedInStore = { storeId: loginId, storeName: result.storeName, region: result.region };
+          document.getElementById('view-store').style.display = 'block';
+          document.getElementById('storeWelcome').textContent = 'Welcome, ' + result.storeName;
+          renderStoreTasks();
+        }
       } else {
-        var messages = { wrong_password: 'Incorrect password.', not_found: 'Store ID not found.', inactive: 'This store is marked inactive.' };
+        var messages = { wrong_password: 'Incorrect password.', not_found: 'Login ID not found.', inactive: 'This login is marked inactive.' };
         errEl.textContent = messages[result.reason] || 'Could not log in — try again.';
         errEl.style.display = 'block';
       }
@@ -369,12 +362,13 @@
     });
   });
 
-  document.getElementById('logoutBtn').addEventListener('click', showLoginScreen);
+  document.getElementById('logoutBtnHo').addEventListener('click', showLoginScreen);
+  document.getElementById('logoutBtnStore').addEventListener('click', showLoginScreen);
 
   // Sends credentials as form data (not JSON) to avoid a CORS preflight
   // that Apps Script web apps don't handle well.
-  function checkStoreLogin(storeId, password){
-    var body = new URLSearchParams({ storeId: storeId, password: password });
+  function checkLogin(loginId, password){
+    var body = new URLSearchParams({ storeId: loginId, password: password });
     return fetch(APPS_SCRIPT_URL, { method: 'POST', body: body })
       .then(function(res){ return res.json(); });
   }
